@@ -9,8 +9,24 @@ import thread
 import subprocess
 import signal
 
+"""
+-----------         -----------
+|         |  poll() |         |
+|  main   |   ==>   |   sub   | exec user code
+| process |   <==   | process |
+|         |  signal |         |
+-----------         -----------
+                     ||    /\
+                     \/    || if file updated, `thread.interrupt_main()`
+                    -----------
+                    |         |
+                    |  check  |
+                    |  file   |
+                    |  thread |
+                    -----------
+"""
 
-def debug_mod():
+def debug_mod(interval=1):
     if not os.environ.get('GUBED_APP'):
         try:
             lockfile = None
@@ -21,12 +37,13 @@ def debug_mod():
                 args = [sys.executable] + sys.argv
                 environ = os.environ.copy()
                 environ['GUBED_APP'] = 'true'
-                environ['LOCKFILE'] = lockfile
+                environ['GUBED_LOCKFILE'] = lockfile
+
                 p = subprocess.Popen(args, env=environ)
 
                 while p.poll() is None:
                     os.utime(lockfile, None)
-                    time.sleep(1)
+                    time.sleep(interval)
 
                 if p.poll() != 3:
                     if os.path.exists(lockfile):
@@ -48,10 +65,8 @@ def debug_mod():
             sys.exit(3)
 
     if os.environ.get('GUBED_APP'):
-        lockfile = os.environ.get('LOCKFILE')
-        print(lockfile)
-        print(os.path.exists(lockfile))
-        bgcheck = FileCheckerThread(lockfile, 1) # 4
+        lockfile = os.environ.get('GUBED_LOCKFILE')
+        bgcheck = FileCheckerThread(lockfile, interval) # 4
         signal.signal(signal.SIGINT, signal_handler)
         bgcheck.start()
 

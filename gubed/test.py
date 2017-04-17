@@ -1,6 +1,6 @@
 import gubed
 
-gubed.debug_mod()
+gubed.autoload()
 
 import time
 

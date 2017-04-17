@@ -1,5 +1,4 @@
 # -*-coding:UTF-8-*-
-
 import os
 import sys
 import time
@@ -9,24 +8,25 @@ import thread
 import subprocess
 import signal
 
-"""
------------         -----------
-|         |  poll() |         |
-|  main   |   ==>   |   sub   | exec user code
-| process |   <==   | process |
-|         |  signal |         |
------------         -----------
-                     ||    /\
-                     \/    || if file updated, `thread.interrupt_main()`
-                    -----------
-                    |         |
-                    |  check  |
-                    |  file   |
-                    |  thread |
-                    -----------
-"""
+def autoload(interval=1):
+    """autoload the user code, work as the following control flow
 
-def debug_mod(interval=1):
+    -----------         -----------
+    |         |  poll() |         |
+    |  main   |   ==>   |   sub   | exec user code
+    | process |   <==   | process |
+    |         |  signal |         |
+    -----------         -----------
+                         ||    /\
+                         \/    || if file updated, `thread.interrupt_main()`
+                        -----------
+                        |         |
+                        |  check  |
+                        |  file   |
+                        |  thread |
+                        -----------
+    """
+    # os.environ['GUBED_APP'] is vairable to identify main/sub process
     if not os.environ.get('GUBED_APP'):
         try:
             lockfile = None
@@ -39,9 +39,13 @@ def debug_mod(interval=1):
                 environ['GUBED_APP'] = 'true'
                 environ['GUBED_LOCKFILE'] = lockfile
 
+                # execute the code in the same environment
                 p = subprocess.Popen(args, env=environ)
 
+                # Check if child process has terminated
+                # A None value indicates that the process hasn’t terminated yet.
                 while p.poll() is None:
+                    # update the modified time
                     os.utime(lockfile, None)
                     time.sleep(interval)
 
@@ -50,19 +54,24 @@ def debug_mod(interval=1):
                         os.unlink(lockfile)
                     sys.exit(p.poll())
         except KeyboardInterrupt:
-            pass
+            # pass
+            print('\nUser Exit[<Ctrl-C>]')
         finally:
             if os.path.exists(lockfile):
                 os.unlink(lockfile)
-        return
+        # is here need sys.exit???
+        # return
+        sys.exit()
 
     def signal_handler(signal, frame):
         if not bgcheck.status:
             bgcheck.status = 'exit'
         bgcheck.join()
         if bgcheck.status == 'reload':
-            # 子进程主动退出
+            # subprocess exit and send signal 3
             sys.exit(3)
+        else:
+            sys.exit(0)
 
     if os.environ.get('GUBED_APP'):
         lockfile = os.environ.get('GUBED_LOCKFILE')

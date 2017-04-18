@@ -6,7 +6,22 @@ import tempfile
 import threading
 import thread
 import subprocess
+import functools
 import signal
+
+
+def _log():
+    """debug log
+    """
+    pass
+
+
+def debug(func):
+    @functools.wrapper(func)
+    def wrapper(*args, **kwargs):
+        pass
+    return wrapper
+
 
 def autoload(interval=1):
     """autoload the user code, work as the following control flow
@@ -59,8 +74,7 @@ def autoload(interval=1):
         finally:
             if os.path.exists(lockfile):
                 os.unlink(lockfile)
-        # is here need sys.exit???
-        # return
+        # no return because it is a function
         sys.exit()
 
     def signal_handler(signal, frame):
@@ -75,7 +89,7 @@ def autoload(interval=1):
 
     if os.environ.get('GUBED_APP'):
         lockfile = os.environ.get('GUBED_LOCKFILE')
-        bgcheck = FileCheckerThread(lockfile, interval) # 4
+        bgcheck = FileCheckerThread(lockfile, interval)
         signal.signal(signal.SIGINT, signal_handler)
         bgcheck.start()
 
@@ -91,8 +105,10 @@ class FileCheckerThread(threading.Thread):
         mtime = lambda path: os.stat(path).st_mtime
         files = dict()
 
+        # get all imported modules and their filepath
         for module in list(sys.modules.values()):
             path = getattr(module, '__file__', '')
+            # if file extension are pyo or pyc, change to py
             if path[-4:] in ('.pyo', '.pyc'):
                 path = path[:-1]
             if path and os.path.exists(path):
@@ -103,8 +119,8 @@ class FileCheckerThread(threading.Thread):
             or mtime(self.lockfile) < time.time() - self.interval - 5:
                 self.status = 'error'
                 thread.interrupt_main()
-            # 检测每个文件的修改时间，若修改则向主线程发出 KeyboardInterrupt
-            # 结束主线程中的 with 语句
+
+            # check the all file modified time
             for path, lmtime in list(files.items()):
                 if not os.path.exists(path) or mtime(path) > lmtime:
                     self.status = 'reload'

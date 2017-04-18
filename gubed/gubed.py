@@ -4,16 +4,25 @@ import sys
 import time
 import tempfile
 import threading
-import thread
 import subprocess
 import functools
 import signal
 
 
-def _log():
+py3 = sys.version_info >= (3,)
+if py3:
+    import _thread as thread
+else:
+    import thread
+
+
+_terminal_color = '\x1b[37m\x1b[46m\x1b[1m{message}\x1b[0m'  # pants color
+
+
+def _log(message):
     """debug log
     """
-    pass
+    print(_terminal_color.format(message=message))
 
 
 def debug(func):
@@ -43,6 +52,7 @@ def autoload(interval=1):
     """
     # os.environ['GUBED_APP'] is vairable to identify main/sub process
     if not os.environ.get('GUBED_APP'):
+        _log('autoload mode start')
         try:
             lockfile = None
             fd, lockfile = tempfile.mkstemp(prefix='GUBED_APP', suffix='.lock')
@@ -69,27 +79,24 @@ def autoload(interval=1):
                         os.unlink(lockfile)
                     sys.exit(p.poll())
         except KeyboardInterrupt:
-            # pass
-            print('\nUser Exit[<Ctrl-C>]')
+            _log('\nUser Exit[<Ctrl-C>]')
         finally:
             if os.path.exists(lockfile):
                 os.unlink(lockfile)
         # no return because it is a function
         sys.exit()
 
-    def signal_handler(signal, frame):
-        if not bgcheck.status:
-            bgcheck.status = 'exit'
-        bgcheck.join()
-        if bgcheck.status == 'reload':
-            # subprocess exit and send signal 3
-            sys.exit(3)
-        else:
-            sys.exit(0)
-
-    if os.environ.get('GUBED_APP'):
+    if os.environ.get('GUBED_APP', False):
+        def signal_handler(signal, frame):
+            if not bgcheck.status:
+                bgcheck.status = 'exit'
+            bgcheck.join()
+            if bgcheck.status == 'reload':
+                # subprocess exit and send signal 3
+                sys.exit(3)
         lockfile = os.environ.get('GUBED_LOCKFILE')
         bgcheck = FileCheckerThread(lockfile, interval)
+        # signal.SIGINT is KeyboardInterrupt singal
         signal.signal(signal.SIGINT, signal_handler)
         bgcheck.start()
 
@@ -124,6 +131,7 @@ class FileCheckerThread(threading.Thread):
             for path, lmtime in list(files.items()):
                 if not os.path.exists(path) or mtime(path) > lmtime:
                     self.status = 'reload'
+                    # raise a KeyboardInterrupt exception in the main thread.
                     thread.interrupt_main()
                     break
             time.sleep(self.interval)

@@ -6,10 +6,12 @@ import tempfile
 import threading
 import subprocess
 import functools
+import traceback
 import signal
 
 
 py3 = sys.version_info >= (3,)
+
 if py3:
     import _thread as thread
 else:
@@ -20,15 +22,41 @@ _terminal_color = '\x1b[37m\x1b[46m\x1b[1m{message}\x1b[0m'  # pants color
 
 
 def _log(message):
-    """debug log
+    """colorful terminal debug log
     """
     print(_terminal_color.format(message=message))
 
 
-def debug(func):
-    @functools.wrapper(func)
-    def wrapper(*args, **kwargs):
+def trace(func):
+    """trace the function call
+    notice that this should be the outermost decorator
+    ```
+    @trace
+    @other
+    def func():
         pass
+    ```
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # 4 tuple (filename, line number, function name, text)
+        caller = traceback.extract_stack()[-2]
+        result = func(*args, **kwargs)
+        _log('{1} was called by {2} in {4} line {3}  return {0}'.format(result,*reversed(caller)))
+        return result
+    return wrapper
+
+
+def timeit(func):
+    """Time execution of function
+    warning: it may be interfered by other process
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        time_init = time.time()
+        result = func(*args, **kwargs)
+        _log('cost {}'.format(time.time() - time_init))
+        return result
     return wrapper
 
 
@@ -86,19 +114,30 @@ def autoload(interval=1):
         # no return because it is a function
         sys.exit()
 
-    if os.environ.get('GUBED_APP', False):
-        def signal_handler(signal, frame):
+    elif os.environ.get('GUBED_APP_CHECK'):
+        while True:
+            time.sleep(2)
+
+    elif os.environ.get('GUBED_APP', False):
+        def interrupt_handler(signal, frame):
             if not bgcheck.status:
                 bgcheck.status = 'exit'
             bgcheck.join()
             if bgcheck.status == 'reload':
                 # subprocess exit and send signal 3
                 sys.exit(3)
+            sys.exit()
         lockfile = os.environ.get('GUBED_LOCKFILE')
         bgcheck = FileCheckerThread(lockfile, interval)
         # signal.SIGINT is KeyboardInterrupt singal
-        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGINT, interrupt_handler)
         bgcheck.start()
+        os.environ['GUBED_APP_CHECK'] = 'true'
+        return
+
+    else:
+        # never execute
+        assert False
 
 
 class FileCheckerThread(threading.Thread):

@@ -1,7 +1,21 @@
 # gubed
 
+### How to use
+
+autoload example:
+
+```python
+import gubed
+
+gubed.autoload()
+
+# your code here
+
+gubed.autoload()
+```
+
 ### TODO
 
-- [ ] 自动检测代码改动，重新运行
+- [x] 自动检测代码改动，重新运行
 - [ ] 查看变量的类型与值
-- [ ] 查看方法的调用者
+- [x] 查看方法的调用者

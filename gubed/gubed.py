@@ -1,4 +1,5 @@
 # -*-coding:UTF-8-*-
+
 import os
 import sys
 import time
@@ -10,9 +11,9 @@ import traceback
 import signal
 
 
-py3 = sys.version_info >= (3,)
+PY3 = sys.version_info >= (3,)
 
-if py3:
+if PY3:
     import _thread as thread
 else:
     import thread
@@ -42,7 +43,8 @@ def trace(func):
         # 4 tuple (filename, line number, function name, text)
         caller = traceback.extract_stack()[-2]
         result = func(*args, **kwargs)
-        _log('{1} was called by {2} in {4} line {3}  return {0}'.format(result,*reversed(caller)))
+        _log('{1} was called by {2} in {4} line {3}  return {0}'.format(
+            result, *reversed(caller)))
         return result
     return wrapper
 
@@ -96,7 +98,7 @@ def autoload(interval=1):
                 p = subprocess.Popen(args, env=environ)
 
                 # Check if child process has terminated
-                # A None value indicates that the process hasn’t terminated yet.
+                # A None value indicates that the process hasn’t terminated yet
                 while p.poll() is None:
                     # update the modified time
                     os.utime(lockfile, None)
@@ -148,7 +150,7 @@ class FileCheckerThread(threading.Thread):
         self.status = None
 
     def run(self):
-        mtime = lambda path: os.stat(path).st_mtime
+        mtime = lambda path: os.stat(path).st_mtime  # noqa
         files = dict()
 
         # get all imported modules and their filepath
@@ -161,8 +163,8 @@ class FileCheckerThread(threading.Thread):
                 files[path] = mtime(path)
 
         while not self.status:
-            if not os.path.exists(self.lockfile)\
-            or mtime(self.lockfile) < time.time() - self.interval - 5:
+            if not os.path.exists(self.lockfile) or \
+                    mtime(self.lockfile) < time.time() - self.interval - 5:
                 self.status = 'error'
                 thread.interrupt_main()
 

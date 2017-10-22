@@ -43,10 +43,21 @@ def trace(func):
         # 4 tuple (filename, line number, function name, text)
         caller = traceback.extract_stack()[-2]
         result = func(*args, **kwargs)
-        _log('{1} was called by {2} in {4} line {3}  return {0}'.format(
-            result, *reversed(caller)))
+        fmt = ('{0.line} was called by {0.name} in '
+               '{0.filename} line {0.lineno}  return {1}')
+        _log(fmt.format(caller, result))
         return result
     return wrapper
+
+
+def breakpoint(**inject_var):
+    """send vairable to REPL"""
+    try:
+        from IPython import embed
+        embed(user_ns=inject_var)
+    except ImportError:
+        from code import interact
+        interact(local=inject_var)
 
 
 def timeit(func):
@@ -59,6 +70,22 @@ def timeit(func):
         result = func(*args, **kwargs)
         _log('cost {}'.format(time.time() - time_init))
         return result
+    return wrapper
+
+
+def countit(func):
+    """count the number of function executions
+    warning: it may be interfered by other process
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        wrapper._counter += 1
+        result = func(*args, **kwargs)
+        return result
+
+    wrapper._counter = 0
+
     return wrapper
 
 

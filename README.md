@@ -13,6 +13,9 @@ gubed is the reversed string of debug. It is designed for quick debug in small a
 git clone https://github.com/Hanaasagi/gubed.git
 cd gubed
 python setup.py install
+
+# or just using pip
+pip install git+https://github.com/Hanaasagi/gubed
 ```
 
 ### Utility Functions

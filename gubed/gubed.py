@@ -7,6 +7,7 @@ import tempfile
 import threading
 import subprocess
 import functools
+import inspect
 import traceback
 import signal
 
@@ -52,12 +53,18 @@ def trace(func):
 
 def breakpoint(**inject_var):
     """send vairable to REPL"""
+    info = inspect.getframeinfo(sys._getframe(1), context=5)
+    filename = info.filename
+    lineno = info.lineno
+    context = ''.join(info.code_context)
+    banner = '[line {} in {}]\n{}'.format(lineno,
+                                          filename, context).strip()
     try:
         from IPython import embed
-        embed(user_ns=inject_var)
+        embed(banner1=banner, user_ns=inject_var)
     except ImportError:
         from code import interact
-        interact(local=inject_var)
+        interact(banner=banner, local=inject_var)
 
 
 def timeit(func):

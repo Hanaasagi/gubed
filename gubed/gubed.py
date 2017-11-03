@@ -22,14 +22,26 @@ else:
 
 _terminal_color = '\x1b[37m\x1b[46m\x1b[1m{message}\x1b[0m'  # pants color
 
+_stressed_color = '\x1b[37m\x1b[33m\x1b[1m{message}\x1b[0m'
 
-def _log(message):
+
+def _log(message, color=_terminal_color):
     """colorful terminal debug log
     """
-    print(_terminal_color.format(message=message))
+    print(color.format(message=message))
 
 
-def trace(func):
+def trace(all_stack):
+    if callable(all_stack):
+        return _trace(all_stack)
+
+    if not isinstance(all_stack, bool):
+        raise TypeError('must be boolean')
+
+    return functools.partial(_trace, all_stack=all_stack)
+
+
+def _trace(func, all_stack=False):
     """trace the function call
     notice that this should be the outermost decorator
     ```
@@ -39,14 +51,26 @@ def trace(func):
         pass
     ```
     """
+
+    # handle closure
+    while func.__closure__ is not None:
+        func = func.__closure__[0].cell_contents
+
+    sig = inspect.signature(func)
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        # 4 tuple (filename, line number, function name, text)
+        # 4 elements tuple (filename, line number, function name, text)
         caller = traceback.extract_stack()[-2]
         result = func(*args, **kwargs)
-        fmt = ('{0.line} was called by {0.name} in '
-               '{0.filename} line {0.lineno}  return {1}')
-        _log(fmt.format(caller, result))
+        fmt = ('{0.line} [sig: {1}] was called by {0.name} in '
+               '{0.filename} line {0.lineno}  return {2}')
+        _log(fmt.format(caller, tuple(sig.parameters.keys()), result))
+        if all_stack:
+            _log('stack message:', _stressed_color)
+            stack_msgs = inspect.stack()
+            for stack_msg in stack_msgs[1:]:
+                _log('{} line {}'.format(stack_msg.filename, stack_msg.lineno))
         return result
     return wrapper
 
@@ -173,7 +197,7 @@ def autoload(interval=1):
 
     else:
         # never execute
-        assert False
+        raise Exception('unexcept bug')
 
 
 class FileCheckerThread(threading.Thread):

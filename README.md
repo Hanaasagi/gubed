@@ -22,6 +22,7 @@ pip install git+https://github.com/Hanaasagi/gubed
 
 #### 1) trace a function call
 
+
 ```Python
 from gubed import trace
 
@@ -51,6 +52,8 @@ if __name__ == '__main__':
     func2(2, 3)
     # func2(2, 3) was called by <module> in trace_example.py line 26  return 6
 ```
+
+Maybe you can try `@trace(all_stack=True)` to show all call stack
 
 #### 2) count
 
